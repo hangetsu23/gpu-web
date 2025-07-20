@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>GPU Shadow</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 5);
+        camera.lookAt(0, 0, 0);
+
+        // Light
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 10, 5);
+        light.castShadow = true;
+        light.shadow.mapSize.width = 1024;
+        light.shadow.mapSize.height = 1024;
+        light.shadow.camera.near = 0.5;
+        light.shadow.camera.far = 50;
+        scene.add(light);
+
+        const ambient = new THREE.AmbientLight(0x404040);
+        scene.add(ambient);
+
+        // Cube
+        const cube = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshStandardMaterial({ color: 0xff0000 })
+        );
+        cube.castShadow = true;
+        scene.add(cube);
+
+        // Sphere
+        const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5, 16, 16),
+            new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+        );
+        sphere.position.set(2, 0.5, 0);
+        sphere.castShadow = true;
+        scene.add(sphere);
+
+        // Plane
+        const plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(10, 10),
+            new THREE.MeshStandardMaterial({ color: 0xffffff })
+        );
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = -0.5;
+        plane.receiveShadow = true;
+        scene.add(plane);
+
+        // Focus body to capture keyboard input
+        window.onload = () => {
+            document.body.tabIndex = 1;
+            document.body.focus();
+        };
+
+        const keysPressed = {};
+        window.addEventListener('keydown', (e) => {
+            keysPressed[e.key] = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+        });
+
+        function updateMovement() {
+            const moveSpeed = 0.05;
+            const rotateSpeed = 0.03;
+            const scaleSpeed = 0.02;
+
+            // Move (WASD)
+            if (keysPressed['w'] || keysPressed['W']) cube.position.z -= moveSpeed;
+            if (keysPressed['s'] || keysPressed['S']) cube.position.z += moveSpeed;
+            if (keysPressed['a'] || keysPressed['A']) cube.position.x -= moveSpeed;
+            if (keysPressed['d'] || keysPressed['D']) cube.position.x += moveSpeed;
+
+            // Rotate (Arrow keys)
+            if (keysPressed['ArrowLeft']) cube.rotation.y -= rotateSpeed;
+            if (keysPressed['ArrowRight']) cube.rotation.y += rotateSpeed;
+            if (keysPressed['ArrowUp']) cube.rotation.x -= rotateSpeed;
+            if (keysPressed['ArrowDown']) cube.rotation.x += rotateSpeed;
+
+            // Scale
+            if (keysPressed['+'] || keysPressed['=']) {
+                cube.scale.x += scaleSpeed;
+                cube.scale.y += scaleSpeed;
+                cube.scale.z += scaleSpeed;
+            }
+            if (keysPressed['-'] || keysPressed['_']) {
+                cube.scale.x = Math.max(0.1, cube.scale.x - scaleSpeed);
+                cube.scale.y = Math.max(0.1, cube.scale.y - scaleSpeed);
+                cube.scale.z = Math.max(0.1, cube.scale.z - scaleSpeed);
+            }
+        }
+
+        function animate(t) {
+            requestAnimationFrame(animate);
+            updateMovement();
+            sphere.rotation.y = t * 0.001;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+
+</html>
