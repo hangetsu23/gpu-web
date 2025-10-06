@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html,body{height:100%;margin:0;font-family:Arial,sans-serif} 
+    canvas{display:block}
+    #info{position:absolute;top:10px;left:10px;color:white;background:rgba(0,0,0,0.7);padding:10px;border-radius:5px;font-size:14px}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+<div id="info">
+  กำลังโหลดโมเดล 3D...<br>
+  <small>ใช้เมาส์เพื่อหมุนและซูม</small>
+</div>
+
+<script>
+  // Scene / Camera / Renderer
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x222222);
+
+  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
+  camera.position.set(0, 2, 5);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+
+  // สร้างพื้น
+  const floorGeometry = new THREE.PlaneGeometry(20, 20);
+  const floorMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x404040,
+    roughness: 0.8,
+    metalness: 0.2
+  });
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // แสงสว่าง
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(5, 10, 5);
+  directionalLight.castShadow = true;
+  directionalLight.shadow.mapSize.width = 2048;
+  directionalLight.shadow.mapSize.height = 2048;
+  directionalLight.shadow.camera.near = 0.5;
+  directionalLight.shadow.camera.far = 50;
+  directionalLight.shadow.camera.left = -10;
+  directionalLight.shadow.camera.right = 10;
+  directionalLight.shadow.camera.top = 10;
+  directionalLight.shadow.camera.bottom = -10;
+  scene.add(directionalLight);
+
+  // Environment map
+  const cubeUrls = [
+    'https://threejs.org/examples/textures/cube/Bridge2/posx.jpg',
+    'https://threejs.org/examples/textures/cube/Bridge2/negx.jpg',
+    'https://threejs.org/examples/textures/cube/Bridge2/posy.jpg',
+    'https://threejs.org/examples/textures/cube/Bridge2/negy.jpg',
+    'https://threejs.org/examples/textures/cube/Bridge2/posz.jpg',
+    'https://threejs.org/examples/textures/cube/Bridge2/negz.jpg'
+  ];
+  const envMap = new THREE.CubeTextureLoader().load(cubeUrls);
+  envMap.encoding = THREE.sRGBEncoding;
+  scene.environment = envMap;
+
+  // โหลดโมเดล GLB
+  const loader = new THREE.GLTFLoader();
+  let model = null;
+  
+  // ตัวอย่าง URL ของโมเดล GLB (เปลี่ยนเป็น URL ของไฟล์ .glb ที่คุณต้องการ)
+  const modelUrl = 'https://hangetsu23.github.io/gpu-web/Portfolio/ComputerRoom.glb';
+  
+  loader.load(
+    modelUrl,
+    function (gltf) {
+      model = gltf.scene;
+      
+      // ตั้งค่าให้โมเดลอยู่บนพื้น
+      model.position.y = 0;
+      model.scale.setScalar(1); // ปรับขนาดถ้าต้องการ
+      
+      // เปิดใช้งานเงา
+      model.traverse(function (child) {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      scene.add(model);
+      
+      // อัปเดต UI
+      document.getElementById('info').innerHTML = `
+        โมเดล 3D โหลดเสร็จแล้ว!<br>
+        <small>ใช้เมาส์เพื่อหมุนและซูม</small>
+      `;
+      
+      console.log('โมเดล GLB โหลดสำเร็จ:', gltf);
+    },
+    function (progress) {
+      const percent = (progress.loaded / progress.total * 100).toFixed(0);
+      document.getElementById('info').innerHTML = `
+        กำลังโหลดโมเดล 3D... ${percent}%<br>
+        <small>ใช้เมาส์เพื่อหมุนและซูม</small>
+      `;
+    },
+    function (error) {
+      console.error('เกิดข้อผิดพลาดในการโหลดโมเดล:', error);
+      document.getElementById('info').innerHTML = `
+        เกิดข้อผิดพลาดในการโหลดโมเดล<br>
+        <small>กรุณาตรวจสอบ URL ของไฟล์</small>
+      `;
+    }
+  );
+
+  // การปรับขนาดหน้าจอ
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // วงจรเรนเดอร์
+  function animate() {
+    controls.update();
+    
+    // หมุนโมเดลเบาๆ (ถ้ามี)
+    //if (model) {
+     // model.rotation.y += 0.005;
+    //}
+    
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  
+  animate();
+</script>
+</body>
+</html>
