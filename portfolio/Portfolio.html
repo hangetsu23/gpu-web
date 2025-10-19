@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html,body{height:100%;margin:0;font-family:Arial,sans-serif} 
+    canvas{display:block}
+    #info{position:absolute;top:10px;left:10px;color:white;background:rgba(0,0,0,0.7);padding:10px;border-radius:5px;font-size:14px;max-width:300px}
+  </style>
+
+  <!-- โหลด Three.js + Loader เพิ่มเติม -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+</head>
+<body>
+<div id="info">
+  กำลังโหลดโมเดล 3D...<br>
+  <small>ใช้เมาส์เพื่อหมุนและซูม</small>
+</div>
+
+<script>
+  // Scene / Camera / Renderer
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
+  camera.position.set(0, 2, 5);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.physicallyCorrectLights = true;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+
+  // สร้างพื้น
+  const floorGeometry = new THREE.PlaneGeometry(20, 20);
+  const floorMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x404040,
+    roughness: 0.8,
+    metalness: 0.2
+  });
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // แสงหลัก
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+  directionalLight.position.set(5, 10, 5);
+  directionalLight.castShadow = true;
+  scene.add(directionalLight);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+
+  // เพิ่มแสงเสริม
+  const fillLight1 = new THREE.DirectionalLight(0xffffff, 1);
+  fillLight1.position.set(-5, 5, -5);
+  scene.add(fillLight1);
+
+  const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.8);
+  fillLight2.position.set(0, 5, -5);
+  scene.add(fillLight2);
+
+  // ✅ โหลด HDRI ให้เป็น environment + background
+  const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  new THREE.RGBELoader()
+    .setDataType(THREE.UnsignedByteType)
+    .load("https://hangetsu23.github.io/gpu-web/portfolio/rogland_clear_night_2k.hdr", function(hdr) {
+      const envMap = pmremGenerator.fromEquirectangular(hdr).texture;
+      scene.background = envMap;
+      scene.environment = envMap;
+    });
+
+  // โหลดโมเดล GLB
+  const loader = new THREE.GLTFLoader();
+  let model = null;
+  
+  const modelUrl = 'https://hangetsu23.github.io/gpu-web/portfolio/main.glb';
+  
+  loader.load(
+    modelUrl,
+    function (gltf) {
+      model = gltf.scene;
+      model.position.y = 0;
+      model.scale.setScalar(1);
+      
+      let meshCount = 0;
+      let materialInfo = [];
+      
+      // 🔥 แก้ไข Material ทั้งหมด
+      model.traverse(function (child) {
+        if (child.isMesh) {
+          meshCount++;
+          child.castShadow = true;
+          child.receiveShadow = true;
+          
+          console.log('Mesh name:', child.name);
+          
+          if (child.material) {
+            const mat = child.material;
+            const hasTexture = mat.map !== null && mat.map !== undefined;
+            
+            materialInfo.push(`${child.name}: ${hasTexture ? 'มี texture' : 'ไม่มี texture'}`);
+            console.log(`  - Material:`, mat);
+            console.log(`  - Has texture:`, hasTexture);
+            console.log(`  - Color:`, mat.color ? mat.color.getHexString() : 'N/A');
+            
+            // ถ้าไม่มี texture หรือเป็นสีขาว ให้สร้างใหม่
+            if (!hasTexture || (mat.color && mat.color.getHex() === 0xffffff)) {
+              let newColor = 0x808080; // สีเทาเริ่มต้น
+              
+              // กำหนดสีตามชื่อ object (ตามโมเดล Blender)
+              const name = child.name.toLowerCase();
+              
+              // รายละเอียดเฉพาะตาม mesh number
+              if (name.includes('mesh006_1')) {
+                newColor = 0xF5E6D3; // หลังคา - สีครีมอ่อน
+              } else if (name.includes('mesh006_2')) {
+                newColor = 0x8B3A3A; // ฝาผนัง - สีน้ำตาลแดง
+              } else if (name.includes('mesh006_3')) {
+                newColor = 0xD2691E; // โครงสร้าง - สีไม้
+              } else if (name.includes('mesh006_4')) {
+                newColor = 0xF5DEB3; // รายละเอียด - สีเบจ
+              } else if (name.includes('mesh006_5')) {
+                newColor = 0xCD853F; // เสา - สีน้ำตาลอ่อน
+              } else if (name.includes('tanah') || name.includes('plane')) {
+                newColor = 0x5A8F3A; // พื้นหญ้า - สีเขียว
+              } else if (name.includes('sumur')) {
+                newColor = 0xC0C0C0; // บ่อน้ำ - สีเทาอ่อน
+              } else if (name.includes('mesh003')) {
+                newColor = 0x696969; // ส่วนตกแต่ง - สีเทาเข้ม
+              } else {
+                // ค่าเริ่มต้นทั่วไป
+                newColor = 0xD2B48C; // สีน้ำตาลอ่อน
+              }
+              
+              console.log(`  ⚠️ แก้ไขเป็นสี: #${newColor.toString(16)}`);
+              
+              child.material = new THREE.MeshStandardMaterial({
+                color: newColor,
+                roughness: 0.7,
+                metalness: 0.2,
+                side: THREE.DoubleSide
+              });
+            } else {
+              // ถ้ามี texture ให้ปรับค่า
+              mat.roughness = mat.roughness || 0.7;
+              mat.metalness = mat.metalness || 0.2;
+              mat.needsUpdate = true;
+            }
+          }
+        }
+      });
+      
+      scene.add(model);
+      
+      document.getElementById('info').innerHTML = `
+        โมเดล 3D โหลดเสร็จแล้ว!<br>
+        <small>พบ ${meshCount} meshes<br>
+        ${materialInfo.slice(0, 5).join('<br>')}
+        ${materialInfo.length > 5 ? '<br>...' : ''}</small>
+      `;
+      
+      console.log('=== โมเดลโหลดเสร็จ ===');
+      console.log('จำนวน meshes:', meshCount);
+      console.log('รายละเอียดทั้งหมด:', materialInfo);
+    },
+    function (progress) {
+      const percent = (progress.loaded / progress.total * 100).toFixed(0);
+      document.getElementById('info').innerHTML = `
+        กำลังโหลดโมเดล 3D... ${percent}%<br>
+        <small>ใช้เมาส์เพื่อหมุนและซูม</small>
+      `;
+    },
+    function (error) {
+      console.error('เกิดข้อผิดพลาดในการโหลดโมเดล:', error);
+      document.getElementById('info').innerHTML = `
+        เกิดข้อผิดพลาดในการโหลดโมเดล<br>
+        <small>กรุณาตรวจสอบ URL ของไฟล์</small>
+      `;
+    }
+  );
+
+  // Resize
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // Render Loop
+  function animate() {
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  
+  animate();
+</script>
+</body>
+</html>
