@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Portfolio </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #000;
+      overflow: hidden;
+    }
+    
+    canvas {
+      display: block;
+    }
+    
+    .header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 15px 30px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+    
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    #info {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 10px;
+      color: white;
+      max-width: 300px;
+      z-index: 50;
+    }
+    
+    #info h3 {
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    
+    #info p {
+      font-size: 14px;
+      line-height: 1.6;
+      opacity: 0.9;
+    }
+    
+    .settings {
+      position: absolute;
+      top: 80px;
+      right: 30px;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 10px;
+      color: white;
+      z-index: 50;
+      display: none;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .settings.active {
+      display: block;
+    }
+    
+    .setting-item {
+      margin-bottom: 15px;
+    }
+    
+    .setting-item label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    
+    .setting-item input[type="range"] {
+      width: 200px;
+    }
+    
+    .setting-item select {
+      width: 200px;
+      padding: 5px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .value-display {
+      display: inline-block;
+      margin-left: 10px;
+      font-weight: bold;
+    }
+    
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 18px;
+      text-align: center;
+      z-index: 10;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏪 Portfolio Store - 3D Scene</h1>
+  <div class="controls">
+    <button class="btn" onclick="toggleSettings()">⚙️ ตั้งค่า</button>
+    <button class="btn" onclick="resetCamera()">🎥 รีเซ็ตมุมกล้อง</button>
+    <button class="btn" onclick="toggleRotate()">🔄 หมุนอัตโนมัติ</button>
+  </div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>กำลังโหลดโมเดล 3D...</p>
+</div>
+
+<div id="info">
+  <h3>📋 วิธีใช้งาน</h3>
+  <p>
+    🖱️ <strong>ลากเมาส์:</strong> หมุนดูโมเดล<br>
+    🔍 <strong>Scroll:</strong> ซูมเข้า-ออก<br>
+    👆 <strong>คลิกป้าย About:</strong> ซูมเข้าดูรายละเอียด<br>
+    ⚙️ <strong>ตั้งค่า:</strong> ปรับแสงและมุมมอง
+  </p>
+</div>
+
+<div class="settings" id="settings">
+  <h3 style="margin-bottom: 15px;">⚙️ การตั้งค่า</h3>
+  
+  <div class="setting-item">
+    <label>🌅 HDRI Environment</label>
+    <select id="hdriSelect">
+      <option value="github" selected>Night Sky (GitHub)</option>
+      <option value="bridge">Bridge</option>
+      <option value="studio">Studio Light</option>
+      <option value="sunset">Sunset</option>
+      <option value="overcast">Overcast</option>
+      <option value="warehouse">Warehouse</option>
+    </select>
+  </div>
+
+  <div class="setting-item">
+    <label>💡 ความสว่าง (Exposure)</label>
+    <input type="range" id="exposure" min="0.1" max="3" step="0.1" value="1.0">
+    <span class="value-display" id="exposureValue">1.0</span>
+  </div>
+
+  <div class="setting-item">
+    <label>🔆 ความเข้มแสงหลัก</label>
+    <input type="range" id="lightIntensity" min="0" max="10" step="0.5" value="4.0">
+    <span class="value-display" id="lightValue">4.0</span>
+  </div>
+
+  <div class="setting-item">
+    <label>🌙 แสงรอบข้าง</label>
+    <input type="range" id="hemisphereIntensity" min="0" max="3" step="0.1" value="1.0">
+    <span class="value-display" id="hemisphereValue">1.0</span>
+  </div>
+
+  <div class="setting-item">
+    <label>💡 แสงเสริม 1</label>
+    <input type="range" id="fillLight1Intensity" min="0" max="5" step="0.5" value="2.0">
+    <span class="value-display" id="fillLight1Value">2.0</span>
+  </div>
+
+  <div class="setting-item">
+    <label>💡 แสงเสริม 2</label>
+    <input type="range" id="fillLight2Intensity" min="0" max="5" step="0.5" value="1.5">
+    <span class="value-display" id="fillLight2Value">1.5</span>
+  </div>
+
+  <div class="setting-item">
+    <label>📐 มุมมอง (FOV)</label>
+    <input type="range" id="fov" min="20" max="90" step="5" value="60">
+    <span class="value-display" id="fovValue">60°</span>
+  </div>
+</div>
+
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+  import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+  let scene, camera, renderer, controls;
+  let mainModel = null;
+  let aboutSignModel = null;
+  let infotextModel = null;
+  let directionalLight, hemisphereLight, fillLight1, fillLight2;
+  let isAutoRotate = false;
+  let moveTarget = null;
+  let loadedModels = 0;
+  const totalModels = 3;
+  
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(-20, 10, 2);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+    scene.add(hemisphereLight);
+
+    directionalLight = new THREE.DirectionalLight(0xffffff, 4.0);
+    directionalLight.position.set(5, 8, 3);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    scene.add(directionalLight);
+
+    fillLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+    fillLight1.position.set(-5, 5, -3);
+    scene.add(fillLight1);
+
+    fillLight2 = new THREE.PointLight(0xffffff, 1.5);
+    fillLight2.position.set(0, 5, 5);
+    scene.add(fillLight2);
+
+    loadHDRI('github');
+    loadModels();
+    loadImage();
+
+    window.addEventListener('resize', onWindowResize);
+    renderer.domElement.addEventListener('click', onCanvasClick);
+    setupControls();
+
+    animate();
+  }
+
+  function loadHDRI(type) {
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    
+    if (type === 'github') {
+      const rgbeLoader = new RGBELoader();
+      rgbeLoader.load(
+        'https://hangetsu23.github.io/gpu-web/portfolio/rogland_clear_night_2k.hdr',
+        function(hdr) {
+          const envMap = pmremGenerator.fromEquirectangular(hdr).texture;
+          scene.background = envMap;
+          scene.environment = envMap;
+          hdr.dispose();
+          pmremGenerator.dispose();
+          console.log('✅ HDRI โหลดสำเร็จ');
+        },
+        undefined,
+        function(error) {
+          console.error('❌ HDRI Error:', error);
+          scene.background = new THREE.Color(0x000000);
+        }
+      );
+    } else if (type === 'bridge') {
+      const envMap = new THREE.CubeTextureLoader().load([
+        'https://threejs.org/examples/textures/cube/Bridge2/posx.jpg',
+        'https://threejs.org/examples/textures/cube/Bridge2/negx.jpg',
+        'https://threejs.org/examples/textures/cube/Bridge2/posy.jpg',
+        'https://threejs.org/examples/textures/cube/Bridge2/negy.jpg',
+        'https://threejs.org/examples/textures/cube/Bridge2/posz.jpg',
+        'https://threejs.org/examples/textures/cube/Bridge2/negz.jpg'
+      ]);
+      envMap.colorSpace = THREE.SRGBColorSpace;
+      scene.background = envMap;
+      scene.environment = envMap;
+      console.log('✅ Bridge Environment โหลดสำเร็จ');
+    } else {
+      const hdriUrls = {
+        studio: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_08_1k.hdr',
+        sunset: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_1k.hdr',
+        overcast: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloofendal_48d_partly_cloudy_1k.hdr',
+        warehouse: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/industrial_sunset_02_1k.hdr'
+      };
+
+      const rgbeLoader = new RGBELoader();
+      rgbeLoader.load(
+        hdriUrls[type],
+        function(texture) {
+          const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+          scene.background = envMap;
+          scene.environment = envMap;
+          texture.dispose();
+          pmremGenerator.dispose();
+          console.log(`✅ HDRI ${type} โหลดสำเร็จ`);
+        },
+        undefined,
+        function(error) {
+          console.error('❌ HDRI Error:', error);
+          scene.background = new THREE.Color(0x000000);
+        }
+      );
+    }
+  }
+
+  function loadModels() {
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.setDRACOLoader(dracoLoader);
+
+    gltfLoader.load(
+      'https://hangetsu23.github.io/gpu-web/portfolio/main.glb',
+      function(gltf) {
+        mainModel = gltf.scene;
+        mainModel.position.set(0, 0, 0);
+        mainModel.scale.set(1, 1, 1);
+        
+        mainModel.traverse(function(child) {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            
+            if (child.material && child.material.map) {
+              child.material.roughness = 0.8;
+              child.material.metalness = 0.0;
+              child.material.needsUpdate = true;
+            }
+          }
+        });
+        
+        scene.add(mainModel);
+        onModelLoaded('main.glb');
+      },
+      undefined,
+      function(error) {
+        console.error('❌ Error loading main.glb:', error);
+      }
+    );
+
+    gltfLoader.load(
+      'https://hangetsu23.github.io/gpu-web/portfolio/about_sign.glb',
+      function(gltf) {
+        aboutSignModel = gltf.scene;
+        aboutSignModel.position.set(1, 0, -0.5);
+        aboutSignModel.scale.set(1.139, 1, 1.106);
+        
+        aboutSignModel.traverse(function(child) {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            
+            if (child.material && child.material.map) {
+              child.material.roughness = 0.6;
+              child.material.metalness = 0.0;
+              child.material.needsUpdate = true;
+            }
+          }
+        });
+        
+        scene.add(aboutSignModel);
+        onModelLoaded('about_sign.glb');
+      },
+      undefined,
+      function(error) {
+        console.error('❌ Error loading about_sign.glb:', error);
+      }
+    );
+
+    gltfLoader.load(
+      'https://hangetsu23.github.io/gpu-web/portfolio/infotext.glb',
+      function(gltf) {
+        infotextModel = gltf.scene;
+        infotextModel.position.set(-4, 1, 0);
+        infotextModel.scale.set(1, 1, 1);
+        
+        infotextModel.traverse(function(child) {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            
+            if (child.material) {
+              if (child.material.map) {
+                child.material.roughness = 0.3;
+                child.material.metalness = 0.0;
+                child.material.needsUpdate = true;
+              } else {
+                child.material.color.set(0x000000);
+                child.material.roughness = 0.8;
+                child.material.metalness = 0.0;
+                child.material.needsUpdate = true;
+              }
+            }
+          }
+        });
+        
+        scene.add(infotextModel);
+        onModelLoaded('infotext.glb');
+      },
+      undefined,
+      function(error) {
+        console.error('❌ Error loading infotext.glb:', error);
+        onModelLoaded('infotext.glb (not found)');
+      }
+    );
+  }
+
+  function onModelLoaded(name) {
+    loadedModels++;
+    console.log(`✅ โหลด ${name} เสร็จ (${loadedModels}/${totalModels})`);
+    
+    if (loadedModels >= totalModels) {
+      document.getElementById('loading').style.display = 'none';
+      console.log('🎉 โหลดทุกอย่างเสร็จแล้ว!');
+    }
+  }
+
+  function loadImage() {
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(
+      'https://hangetsu23.github.io/gpu-web/portfolio/my_picture.jpeg',
+      function(texture) {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        const geo = new THREE.BoxGeometry(30, 40, 0.1);
+        const mat = new THREE.MeshBasicMaterial({ 
+          map: texture, 
+          color: 0xffffff
+        });
+        const cube = new THREE.Mesh(geo, mat);
+        cube.position.set(13, 3, -8);
+        cube.scale.set(0.1, 0.1, 0.1);
+        cube.rotation.y = 1.5;
+        scene.add(cube);
+        console.log('✅ โหลดรูปภาพเสร็จ');
+      },
+      undefined,
+      function(error) {
+        console.error('❌ Error loading image:', error);
+      }
+    );
+  }
+
+  function loadLogo() {
+    const textureLoader = new THREE.TextureLoader();
+    
+    const logoUrls = [
+      'https://hangetsu23.github.io/gpu-web/portfolio/logo.png',
+      'https://hangetsu23.github.io/gpu-web/portfolio/logo.jpg',
+      'https://hangetsu23.github.io/gpu-web/portfolio/logo.svg',
+      'https://hangetsu23.github.io/gpu-web/portfolio/KU_Logo.svg',
+      'https://hangetsu23.github.io/gpu-web/KU_Logo.svg'
+    ];
+    
+    let currentIndex = 0;
+    
+    function tryLoadLogo() {
+      if (currentIndex >= logoUrls.length) {
+        console.warn('⚠️ ไม่พบไฟล์ Logo');
+        return;
+      }
+      
+      const url = logoUrls[currentIndex];
+      console.log(`🔄 ลองโหลด Logo: ${url}`);
+      
+      textureLoader.load(
+        url,
+        function(texture) {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          
+          const geometry = new THREE.PlaneGeometry(2, 2);
+          const material = new THREE.MeshBasicMaterial({ 
+            map: texture,
+            transparent: true,
+            side: THREE.DoubleSide
+          });
+          
+          const logoMesh = new THREE.Mesh(geometry, material);
+          logoMesh.position.set(-5, 3, 5);
+          logoMesh.rotation.y = Math.PI / 4;
+          
+          scene.add(logoMesh);
+          console.log(`✅ Logo โหลดสำเร็จ: ${url}`);
+        },
+        undefined,
+        function(error) {
+          console.log(`  └─ ไม่พบ: ${url}`);
+          currentIndex++;
+          tryLoadLogo();
+        }
+      );
+    }
+    
+    tryLoadLogo();
+  }
+
+  function onCanvasClick(event) {
+    if (!aboutSignModel || moveTarget) return;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObject(aboutSignModel, true);
+
+    if (intersects.length > 0) {
+      // ซูมเข้าดูป้าย About ใกล้ๆ
+      moveTarget = {
+        pos: new THREE.Vector3(1, 0, -0.5),  // ตำแหน่งกล้องใกล้ป้าย
+        tar: new THREE.Vector3(1, 0, -0.5)  // มองไปที่ป้าย
+      };
+      controls.enabled = false;
+      console.log('📌 คลิกป้าย About - ซูมเข้าดูป้าย');
+    }
+  }
+
+  function setupControls() {
+    document.getElementById('hdriSelect').addEventListener('change', function(e) {
+      loadHDRI(e.target.value);
+    });
+
+    const exposureSlider = document.getElementById('exposure');
+    const exposureValue = document.getElementById('exposureValue');
+    exposureSlider.addEventListener('input', function(e) {
+      const value = parseFloat(e.target.value);
+      renderer.toneMappingExposure = value;
+      exposureValue.textContent = value.toFixed(1);
+    });
+
+    const lightSlider = document.getElementById('lightIntensity');
+    const lightValue = document.getElementById('lightValue');
+    lightSlider.addEventListener('input', function(e) {
+      const value = parseFloat(e.target.value);
+      directionalLight.intensity = value;
+      lightValue.textContent = value.toFixed(1);
+    });
+
+    const hemisphereSlider = document.getElementById('hemisphereIntensity');
+    const hemisphereValue = document.getElementById('hemisphereValue');
+    hemisphereSlider.addEventListener('input', function(e) {
+      const value = parseFloat(e.target.value);
+      hemisphereLight.intensity = value;
+      hemisphereValue.textContent = value.toFixed(1);
+    });
+
+    const fillLight1Slider = document.getElementById('fillLight1Intensity');
+    const fillLight1Value = document.getElementById('fillLight1Value');
+    fillLight1Slider.addEventListener('input', function(e) {
+      const value = parseFloat(e.target.value);
+      fillLight1.intensity = value;
+      fillLight1Value.textContent = value.toFixed(1);
+    });
+
+    const fillLight2Slider = document.getElementById('fillLight2Intensity');
+    const fillLight2Value = document.getElementById('fillLight2Value');
+    fillLight2Slider.addEventListener('input', function(e) {
+      const value = parseFloat(e.target.value);
+      fillLight2.intensity = value;
+      fillLight2Value.textContent = value.toFixed(1);
+    });
+
+    const fovSlider = document.getElementById('fov');
+    const fovValue = document.getElementById('fovValue');
+    fovSlider.addEventListener('input', function(e) {
+      const value = parseInt(e.target.value);
+      camera.fov = value;
+      camera.updateProjectionMatrix();
+      fovValue.textContent = value + '°';
+    });
+  }
+
+  window.toggleSettings = function() {
+    document.getElementById('settings').classList.toggle('active');
+  }
+
+  window.resetCamera = function() {
+    camera.position.set(-20, 10, 2);  // รีเซ็ตกลับมาดูหน้าร้าน
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    controls.enabled = true;
+    moveTarget = null;
+    controls.update();
+    console.log('🎥 รีเซ็ตกล้อง');
+  }
+
+  window.toggleRotate = function() {
+    isAutoRotate = !isAutoRotate;
+    controls.autoRotate = isAutoRotate;
+    controls.autoRotateSpeed = 0.5;
+    console.log(`🔄 หมุนอัตโนมัติ: ${isAutoRotate ? 'เปิด' : 'ปิด'}`);
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  let t = 0;
+  function animate() {
+    requestAnimationFrame(animate);
+    
+    t += 0.01;
+    directionalLight.position.x = 3 + Math.sin(t) * 1.0;
+
+    if (moveTarget) {
+      camera.position.lerp(moveTarget.pos, 0.05);
+      controls.target.lerp(moveTarget.tar, 0.05);
+      
+      if (camera.position.distanceTo(moveTarget.pos) < 0.1) {
+        controls.enabled = true;
+        moveTarget = null;
+      }
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'r' || e.key === 'R') {
+      window.resetCamera();
+    }
+    if (e.key === ' ') {
+      e.preventDefault();
+      window.toggleRotate();
+    }
+    if (e.key === 'Escape') {
+      window.resetCamera();
+    }
+  });
+
+  init();
+
+  console.log('🎮 Keyboard: R=Reset | Space=Rotate | Esc=Reset');
+</script>
+</body>
+</html>
